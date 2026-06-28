@@ -1,8 +1,9 @@
+require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const { load } = require('./db');
 const { generateCode } = require('./codes');
-const { processPayment } = require('./payment');
+const { createOrder, captureOrder, PAYPAL_CLIENT_ID } = require('./paypal');
 const { sendCodeEmail } = require('./mailer');
 const { PLANS, DURATIONS, PRICES, FEATURES, FAQ, BOT_USERNAME, TRIAL_DAYS, PORT } = require('./config');
 
@@ -11,6 +12,7 @@ load();
 const app = express();
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
+app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -25,29 +27,57 @@ app.get('/', (req, res) => {
 app.get('/checkout/:plan', (req, res) => {
   const plan = PLANS[req.params.plan];
   if (!plan) return res.redirect('/');
-  res.render('checkout', { plan, planKey: req.params.plan, durations: DURATIONS, priceFor, botUsername: BOT_USERNAME, error: null });
+  res.render('checkout', { plan, planKey: req.params.plan, durations: DURATIONS, priceFor, botUsername: BOT_USERNAME, paypalClientId: PAYPAL_CLIENT_ID });
 });
 
-app.post('/checkout/:plan/pay', async (req, res) => {
-  const planKey = req.params.plan;
-  const plan = PLANS[planKey];
-  const { duration: durationKey, email } = req.body;
-  const duration = DURATIONS[durationKey];
-  if (!plan || !duration) return res.redirect('/');
-  if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
-    return res.render('checkout', { plan, planKey, durations: DURATIONS, priceFor, botUsername: BOT_USERNAME, error: 'Adresse e-mail invalide.' });
+// --- API PayPal : le montant est toujours recalculé côté serveur, jamais fait confiance au client ---
+
+app.post('/api/paypal/create-order', async (req, res) => {
+  try {
+    const { plan: planKey, duration: durationKey, email } = req.body;
+    const plan = PLANS[planKey];
+    const duration = DURATIONS[durationKey];
+    if (!plan || !duration) return res.status(400).json({ error: 'Plan ou durée invalide.' });
+    if (!email || !/^\S+@\S+\.\S+$/.test(email)) return res.status(400).json({ error: 'Adresse e-mail invalide.' });
+
+    const price = priceFor(planKey, durationKey);
+    const customId = `${planKey}|${durationKey}|${email}`;
+    const order = await createOrder(price, 'EUR', customId);
+    if (!order.id) return res.status(500).json({ error: 'Erreur PayPal lors de la création de la commande.' });
+    res.json({ id: order.id });
+  } catch (e) {
+    console.error('[PAYPAL] create-order:', e.message);
+    res.status(500).json({ error: 'Erreur serveur.' });
   }
+});
 
-  const price = priceFor(planKey, durationKey);
-  const payment = await processPayment({ email }, planKey, durationKey, price);
-  if (!payment.success) {
-    return res.render('checkout', { plan, planKey, durations: DURATIONS, priceFor, botUsername: BOT_USERNAME, error: 'Paiement refusé, réessayez.' });
+app.post('/api/paypal/capture-order', async (req, res) => {
+  try {
+    const { orderID } = req.body;
+    if (!orderID) return res.status(400).json({ error: 'orderID manquant.' });
+
+    const capture = await captureOrder(orderID);
+    if (capture.status !== 'COMPLETED') {
+      return res.status(400).json({ error: 'Paiement non confirmé par PayPal.' });
+    }
+
+    const customId = capture.purchase_units?.[0]?.payments?.captures?.[0]?.custom_id
+      || capture.purchase_units?.[0]?.custom_id;
+    const [planKey, durationKey, email] = (customId || '').split('|');
+    const plan = PLANS[planKey];
+    const duration = DURATIONS[durationKey];
+    if (!plan || !duration || !email) {
+      return res.status(500).json({ error: 'Commande introuvable après paiement — contactez le support.' });
+    }
+
+    const entry = generateCode(planKey, duration.months, email);
+    await sendCodeEmail(email, entry.code, plan.label, duration.label);
+
+    res.json({ code: entry.code, plan: plan.label, duration: duration.label, email });
+  } catch (e) {
+    console.error('[PAYPAL] capture-order:', e.message);
+    res.status(500).json({ error: 'Erreur serveur.' });
   }
-
-  const entry = generateCode(planKey, duration.months, email);
-  await sendCodeEmail(email, entry.code, plan.label, duration.label);
-
-  res.render('success', { plan, duration, code: entry.code, email, botUsername: BOT_USERNAME });
 });
 
 app.get('/mentions-legales', (req, res) => res.render('legal', { title: 'Mentions légales', botUsername: BOT_USERNAME }));

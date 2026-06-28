@@ -3,13 +3,15 @@ const express = require('express');
 const path = require('path');
 const { generateCode } = require('./codes');
 const { sendCodeEmail } = require('./mailer');
+const { createPendingOrder, findOldestPendingByPrice, markFulfilled } = require('./pending-orders');
+const { verifyIpn } = require('./paypal-ipn');
 const { PLANS, DURATIONS, PRICES, FEATURES, FAQ, BOT_USERNAME, PAYPAL_ME_USERNAME, TRIAL_DAYS, PORT } = require('./config');
 
 const app = express();
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: true, verify: (req, res, buf) => { req.rawBody = buf.toString('utf8'); } }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 function priceFor(planKey, durationKey) {
@@ -37,11 +39,36 @@ app.post('/checkout/:plan/pay', async (req, res) => {
   }
 
   const price = priceFor(planKey, durationKey);
-  const entry = await generateCode(planKey, duration.months, email);
-  await sendCodeEmail(email, entry.code, plan.label, duration.label);
+  await createPendingOrder({ email, plan: planKey, durationKey, durationMonths: duration.months, price });
 
   const paypalMeLink = `https://paypal.me/${PAYPAL_ME_USERNAME}/${price}EUR`;
-  res.render('success', { plan, duration, code: entry.code, email, botUsername: BOT_USERNAME, paypalMeLink, price });
+  res.render('pending', { plan, duration, email, botUsername: BOT_USERNAME, paypalMeLink, price });
+});
+
+// --- IPN PayPal : notification automatique envoyée par PayPal à chaque paiement reçu ---
+// Marche avec un compte PayPal personnel (pas besoin de compte Business / API)
+app.post('/api/paypal/ipn', async (req, res) => {
+  res.sendStatus(200); // accuser réception immédiatement, comme l'exige PayPal
+
+  try {
+    const verified = await verifyIpn(req.rawBody);
+    if (!verified) return console.warn('[IPN] Notification non vérifiée, ignorée.');
+
+    const { payment_status, mc_gross, mc_currency } = req.body;
+    if (payment_status !== 'Completed' || mc_currency !== 'EUR') return;
+
+    const price = parseFloat(mc_gross);
+    const order = await findOldestPendingByPrice(price);
+    if (!order) return console.warn(`[IPN] Aucune commande en attente pour ${price} €.`);
+
+    const plan = PLANS[order.plan];
+    const entry = await generateCode(order.plan, order.duration_months, order.email);
+    await sendCodeEmail(order.email, entry.code, plan.label, DURATIONS[order.duration_key].label);
+    await markFulfilled(order.id);
+    console.log(`[IPN] Code ${entry.code} envoyé à ${order.email} pour la commande ${order.id}.`);
+  } catch (e) {
+    console.error('[IPN] Erreur traitement:', e.message);
+  }
 });
 
 app.get('/mentions-legales', (req, res) => res.render('legal', { title: 'Mentions légales', botUsername: BOT_USERNAME }));

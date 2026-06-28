@@ -7,15 +7,14 @@
 
     <a href="<%= paypalMeLink %>" target="_blank" class="btn btn-primary btn-block" style="margin: 18px 0;">💳 Payer <%= price.toFixed(2) %> € sur PayPal</a>
 
-    <p class="muted">Votre code d'activation a été envoyé à <strong><%= email %></strong>. Vous pouvez aussi le noter ici :</p>
-    <div class="code-display"><%= code %></div>
+    <p class="muted">Une fois le paiement reçu, votre code d'activation sera envoyé automatiquement à <strong><%= email %></strong> (généralement en quelques minutes).</p>
 
     <div class="steps-mini">
-      <p style="margin:0 0 8px; font-weight:600;">Pour activer votre abonnement :</p>
+      <p style="margin:0 0 8px; font-weight:600;">Étapes :</p>
       <ol>
         <li>Réglez le paiement sur PayPal (bouton ci-dessus).</li>
-        <li>Ouvrez le bot Telegram.</li>
-        <li>Cliquez sur <strong>« J'ai un abonnement »</strong>.</li>
+        <li>Recevez votre code par e-mail automatiquement.</li>
+        <li>Ouvrez le bot Telegram et cliquez sur <strong>« J'ai un abonnement »</strong>.</li>
         <li>Entrez votre code.</li>
       </ol>
     </div>

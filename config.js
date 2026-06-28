@@ -2,7 +2,7 @@ require('dotenv').config();
 
 module.exports = {
   PORT: process.env.PORT || 4040,
-  BOT_USERNAME: process.env.BOT_USERNAME || 'VotreBotFlightTracker_bot',
+  BOT_USERNAME: process.env.BOT_USERNAME || 'Flightq_bot',
   TRIAL_DAYS: 3,
   PLANS: {
     standard: {

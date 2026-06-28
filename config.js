@@ -4,6 +4,8 @@ module.exports = {
   PORT: process.env.PORT || 4040,
   BOT_USERNAME: process.env.BOT_USERNAME || 'Flightq_bot',
   PAYPAL_ME_USERNAME: process.env.PAYPAL_ME_USERNAME || 'florencearrouasse',
+  RESEND_API_KEY: process.env.RESEND_API_KEY,
+  MAIL_FROM: process.env.MAIL_FROM || 'Flight Tracker <onboarding@resend.dev>',
   TRIAL_DAYS: 3,
   PLANS: {
     standard: {

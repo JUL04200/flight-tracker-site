@@ -4,7 +4,7 @@ const { load } = require('./db');
 const { generateCode } = require('./codes');
 const { processPayment } = require('./payment');
 const { sendCodeEmail } = require('./mailer');
-const { PLANS, DURATIONS, FEATURES, FAQ, BOT_USERNAME, TRIAL_DAYS, PORT } = require('./config');
+const { PLANS, DURATIONS, PRICES, FEATURES, FAQ, BOT_USERNAME, TRIAL_DAYS, PORT } = require('./config');
 
 load();
 
@@ -15,10 +15,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 function priceFor(planKey, durationKey) {
-  const plan = PLANS[planKey];
-  const duration = DURATIONS[durationKey];
-  if (!plan || !duration) return null;
-  return Math.round(plan.monthlyPrice * duration.multiplier * 100) / 100;
+  return PRICES[planKey] ? PRICES[planKey][durationKey] ?? null : null;
 }
 
 app.get('/', (req, res) => {

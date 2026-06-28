@@ -6,21 +6,26 @@ module.exports = {
   TRIAL_DAYS: 3,
   PLANS: {
     standard: {
-      key: 'standard', label: 'Standard', monthlyPrice: 3.99,
+      key: 'standard', label: 'Standard', monthlyPrice: 4.99,
       features: ['Jusqu\'à 3 surveillances actives', 'Vérification toutes les 30 minutes', 'Notifications Telegram'],
       highlight: false
     },
     premium: {
-      key: 'premium', label: 'Premium', monthlyPrice: 8.99,
+      key: 'premium', label: 'Premium', monthlyPrice: 9.99,
       features: ['Surveillances illimitées', 'Vérification toutes les 5 à 10 minutes', 'Notifications prioritaires', 'Historique complet'],
       highlight: true
     },
   },
   DURATIONS: {
-    '1m': { months: 1, label: '1 mois', multiplier: 1 },
-    '3m': { months: 3, label: '3 mois', multiplier: 2.75 },
-    '6m': { months: 6, label: '6 mois', multiplier: 5 },
-    '1y': { months: 12, label: '1 an', multiplier: 9 },
+    '1m': { months: 1, label: '1 mois' },
+    '3m': { months: 3, label: '3 mois' },
+    '6m': { months: 6, label: '6 mois' },
+    '1y': { months: 12, label: '1 an' },
+  },
+  // Prix totaux ronds par plan/durée, avec une remise croissante sur les engagements longs
+  PRICES: {
+    standard: { '1m': 4.99, '3m': 13.99, '6m': 24.99, '1y': 44.99 },
+    premium: { '1m': 9.99, '3m': 26.99, '6m': 49.99, '1y': 89.99 },
   },
   FEATURES: [
     { icon: '📉', title: 'Surveillance des baisses de prix', text: 'Suivez un trajet précis et soyez alerté dès que le prix descend sous votre seuil.' },

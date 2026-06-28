@@ -1,4 +1,4 @@
-const { db, save } = require('./db');
+const { supabase } = require('./db');
 
 // Même charset que le bot Telegram (FT-XXXX-XXXX), sans 0/O/1/I pour éviter les confusions
 const CHARSET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -9,20 +9,22 @@ function randomSegment(len) {
   return s;
 }
 
-function generateCode(plan, durationMonths, userEmail) {
+async function generateCode(plan, durationMonths, userEmail) {
   let code;
-  do {
+  let exists = true;
+  while (exists) {
     code = `FT-${randomSegment(4)}-${randomSegment(4)}`;
-  } while (db.codes[code]);
+    const { data } = await supabase.from('codes').select('code').eq('code', code).maybeSingle();
+    exists = !!data;
+  }
 
   const entry = {
-    code, plan, durationMonths,
-    createdAt: new Date().toISOString(),
-    boughtBy: userEmail || null,
-    status: 'unused', usedBy: null, usedAt: null
+    code, plan, duration_months: durationMonths,
+    bought_by: userEmail || null,
+    status: 'unused', used_by: null, used_at: null
   };
-  db.codes[code] = entry;
-  save();
+  const { error } = await supabase.from('codes').insert(entry);
+  if (error) throw new Error('Supabase insert failed: ' + error.message);
   return entry;
 }
 

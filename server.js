@@ -1,13 +1,10 @@
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
-const { load } = require('./db');
 const { generateCode } = require('./codes');
 const { createOrder, captureOrder, PAYPAL_CLIENT_ID } = require('./paypal');
 const { sendCodeEmail } = require('./mailer');
 const { PLANS, DURATIONS, PRICES, FEATURES, FAQ, BOT_USERNAME, TRIAL_DAYS, PORT } = require('./config');
-
-load();
 
 const app = express();
 app.set('view engine', 'ejs');
@@ -70,7 +67,7 @@ app.post('/api/paypal/capture-order', async (req, res) => {
       return res.status(500).json({ error: 'Commande introuvable après paiement — contactez le support.' });
     }
 
-    const entry = generateCode(planKey, duration.months, email);
+    const entry = await generateCode(planKey, duration.months, email);
     await sendCodeEmail(email, entry.code, plan.label, duration.label);
 
     res.json({ code: entry.code, plan: plan.label, duration: duration.label, email });

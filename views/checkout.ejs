@@ -54,10 +54,13 @@
 <script>
   const planKey = "<%= planKey %>";
 
+  let lastErrorWasHandled = false;
+
   function showError(msg) {
     const box = document.getElementById('error-box');
     box.textContent = msg;
     box.style.display = 'block';
+    lastErrorWasHandled = true;
   }
 
   paypal.Buttons({
@@ -95,7 +98,12 @@
         });
     },
     onError: function () {
+      if (lastErrorWasHandled) { lastErrorWasHandled = false; return; }
       showError('Une erreur est survenue avec PayPal. Réessayez.');
+    },
+    onClick: function () {
+      lastErrorWasHandled = false;
+      document.getElementById('error-box').style.display = 'none';
     }
   }).render('#paypal-buttons');
 </script>

@@ -3,6 +3,7 @@ require('dotenv').config();
 module.exports = {
   PORT: process.env.PORT || 4040,
   BOT_USERNAME: process.env.BOT_USERNAME || 'Flightq_bot',
+  PAYPAL_ME_USERNAME: process.env.PAYPAL_ME_USERNAME || 'florencearrouasse',
   TRIAL_DAYS: 3,
   PLANS: {
     standard: {

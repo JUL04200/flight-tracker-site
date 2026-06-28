@@ -1,13 +1,13 @@
 <%- include('partials/header', { title: 'Acheter ' + plan.label, botUsername }) %>
 
 <div class="card-page">
-  <div class="card" id="checkout-card">
-    <div id="checkout-form">
-      <h1>Plan <%= plan.label %></h1>
-      <p class="muted">Choisissez la durée de votre abonnement.</p>
+  <div class="card">
+    <h1>Plan <%= plan.label %></h1>
+    <p class="muted">Choisissez la durée de votre abonnement.</p>
 
-      <p class="error-text" id="error-box" style="display:none;"></p>
+    <% if (error) { %><p class="error-text"><%= error %></p><% } %>
 
+    <form method="POST" action="/checkout/<%= planKey %>/pay">
       <div class="duration-options">
         <% Object.entries(durations).forEach(([key, d], i) => { %>
           <div class="duration-option">
@@ -22,90 +22,15 @@
 
       <div class="field">
         <label class="field-label" for="email">Adresse e-mail (pour recevoir votre code)</label>
-        <input type="email" id="email" placeholder="vous@exemple.com" required>
+        <input type="email" id="email" name="email" placeholder="vous@exemple.com" required>
       </div>
 
-      <div id="paypal-buttons"></div>
-      <p class="muted" style="margin-top:16px;">Paiement sécurisé via PayPal. Le code n'est délivré qu'une fois le paiement confirmé.</p>
-      <p><a href="/" class="muted">&larr; Retour aux tarifs</a></p>
-    </div>
+      <button type="submit" class="btn btn-primary btn-block">Continuer vers le paiement</button>
+    </form>
 
-    <div id="checkout-success" class="success-box" style="display:none;">
-      <div class="success-icon">✅</div>
-      <h1>Merci pour votre achat !</h1>
-      <p class="muted">Votre code d'activation a été envoyé à <strong id="success-email"></strong>.</p>
-      <p class="muted" style="margin-top:18px;">Votre code :</p>
-      <div class="code-display" id="success-code"></div>
-      <div class="steps-mini">
-        <p style="margin:0 0 8px; font-weight:600;">Pour activer votre abonnement :</p>
-        <ol>
-          <li>Ouvrez le bot Telegram.</li>
-          <li>Cliquez sur <strong>« J'ai un abonnement »</strong>.</li>
-          <li>Entrez votre code.</li>
-          <li>Votre abonnement sera activé automatiquement.</li>
-        </ol>
-      </div>
-      <a href="https://t.me/<%= botUsername %>" target="_blank" class="btn btn-primary btn-block">💬 Ouvrir le bot Telegram</a>
-    </div>
+    <p class="muted" style="margin-top:16px;">Vous serez ensuite redirigé vers PayPal pour régler le montant.</p>
+    <p><a href="/" class="muted">&larr; Retour aux tarifs</a></p>
   </div>
 </div>
-
-<script src="https://www.paypal.com/sdk/js?client-id=<%= paypalClientId %>&currency=EUR"></script>
-<script>
-  const planKey = "<%= planKey %>";
-
-  let lastErrorWasHandled = false;
-
-  function showError(msg) {
-    const box = document.getElementById('error-box');
-    box.textContent = msg;
-    box.style.display = 'block';
-    lastErrorWasHandled = true;
-  }
-
-  paypal.Buttons({
-    createOrder: function () {
-      const email = document.getElementById('email').value.trim();
-      const duration = document.querySelector('input[name="duration"]:checked').value;
-      if (!email || !email.includes('@')) {
-        showError('Merci d\'entrer une adresse e-mail valide avant de payer.');
-        return Promise.reject(new Error('invalid_email'));
-      }
-      return fetch('/api/paypal/create-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: planKey, duration, email })
-      })
-        .then(r => r.json())
-        .then(data => {
-          if (data.error) { showError(data.error); throw new Error(data.error); }
-          return data.id;
-        });
-    },
-    onApprove: function (data) {
-      return fetch('/api/paypal/capture-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderID: data.orderID })
-      })
-        .then(r => r.json())
-        .then(result => {
-          if (result.error) { showError(result.error); return; }
-          document.getElementById('checkout-form').style.display = 'none';
-          document.getElementById('checkout-success').style.display = 'block';
-          document.getElementById('success-email').textContent = result.email;
-          document.getElementById('success-code').textContent = result.code;
-        });
-    },
-    onError: function () {
-      if (lastErrorWasHandled) { lastErrorWasHandled = false; return; }
-      showError('Une erreur est survenue avec PayPal. Réessayez.');
-    },
-    onClick: function () {
-      lastErrorWasHandled = false;
-      document.getElementById('error-box').style.display = 'none';
-    }
-  }).render('#paypal-buttons');
-</script>
 
 <%- include('partials/footer') %>
